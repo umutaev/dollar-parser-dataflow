@@ -1,6 +1,7 @@
 from prefect import Task
 from bs4 import BeautifulSoup
 import requests
+from datetime import datetime
 
 from exceptions.network import PageLoadingException
 
@@ -18,8 +19,8 @@ class BestChangeParseTask(Task):
             raise PageLoadingException(f"Url {self.url} returned {r.status_code}.")
         return r.text
 
-    def run(self):
-        soup = BeautifulSoup(self._get_page(), "html.parser")
+    def _parse_html(self, html):
+        soup = BeautifulSoup(html, "html.parser")
         table = soup.find("table", {"id": "content_table"}).tbody.findChildren("tr")
         rates = []
         for row in table:
@@ -54,4 +55,11 @@ class BestChangeParseTask(Task):
                 )
             except AttributeError:
                 pass
-        return rates
+        return {
+            "date": datetime.utcnow(),
+            "rates": rates,
+        }
+
+    def run(self):
+        page_html = self._get_page()
+        return self._parse_html(page_html)
